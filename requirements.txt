@@ -1,0 +1,14 @@
+# Web Crawling & Scraping
+requests>=2.31.0
+beautifulsoup4>=4.12.0
+
+# Image Processing
+Pillow>=10.0.0
+
+# Web Application & Agent GUI
+Flask>=3.0.0
+langgraph>=0.1.0
+google-genai>=0.1.1
+
+# Compilation / App Bundling (Development)
+pyinstaller>=6.5.0
