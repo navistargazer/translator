@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>AI 웹소설 번역기 (스트리밍 & 용어집)</title>
+    <style>
+        body { font-family: 'Malgun Gothic', sans-serif; max-width: 900px; margin: 0 auto; padding: 20px; background-color: #f4f4f9; }
+        .header { text-align: center; margin-bottom: 20px; }
+        
+        .control-panel, .glossary-panel { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.05); margin-bottom: 20px; }
+        .input-group { display: flex; gap: 10px; justify-content: center; margin-bottom: 15px; }
+        input[type="text"] { flex: 1; padding: 10px; font-size: 15px; border: 1px solid #ccc; border-radius: 5px; }
+        button { padding: 10px 20px; font-size: 15px; font-weight: bold; background-color: #4CAF50; color: white; border: none; border-radius: 5px; cursor: pointer; transition: 0.2s; }
+        button:hover { background-color: #45a049; }
+        button.btn-retry { background-color: #ff9800; }
+        button.btn-retry:hover { background-color: #e68a00; }
+        
+        .glossary-title { font-size: 16px; font-weight: bold; margin-bottom: 10px; color: #333; }
+        .glossary-inputs { display: flex; gap: 10px; margin-bottom: 10px; }
+        .glossary-inputs input { padding: 8px; font-size: 14px; }
+        .tag-list { display: flex; flex-wrap: wrap; gap: 8px; }
+        .tag { background: #e3f2fd; color: #1565c0; padding: 5px 10px; border-radius: 15px; font-size: 13px; font-weight: bold; display: flex; align-items: center; gap: 6px;}
+        .tag span.remove { cursor: pointer; color: #d32f2f; font-weight: bold; }
+        
+        #resultContainer { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        .line-pair { margin-bottom: 24px; padding: 12px; border-radius: 8px; transition: background-color 0.2s; border-left: 3px solid transparent; }
+        .line-pair:hover { background-color: #f9f9f9; border-left: 3px solid #4CAF50; }
+        
+        .translated-line { font-size: 17px; margin: 0 0 6px 0; color: #111; line-height: 1.6; min-height: 27px; }
+        .original-line { font-size: 14.5px; margin: 0; color: #777; line-height: 1.5; }
+        
+        .translating { color: #aaa; font-style: italic; animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📚 AI 웹소설 번역기</h1>
+    </div>
+    
+    <div class="control-panel">
+        <div class="input-group">
+            <input type="text" id="urlInput" value="https://ncode.syosetu.com/n1314hd/1/" placeholder="소설가가 되자 URL 입력">
+            <button onclick="startTranslation()" id="transBtn">번역 시작 (스트리밍)</button>
+        </div>
+    </div>
+
+    <div class="glossary-panel">
+        <div class="glossary-title">📖 고유명사 용어집 관리</div>
+        <div class="glossary-inputs">
+            <input type="text" id="glosJp" placeholder="원문 (예: クノン)">
+            <input type="text" id="glosKr" placeholder="번역 (예: 쿠논)">
+            <button onclick="addGlossaryTerm()" style="background-color: #2196F3;">추가</button>
+            <button onclick="startTranslation()" class="btn-retry" id="retryBtn" style="display:none;">이 용어집으로 재번역</button>
+        </div>
+        <div class="tag-list" id="glossaryTags"></div>
+    </div>
+    
+    <div id="resultContainer" style="display:none;"></div>
+
+    <script>
+        let currentGlossary = {};
+        let isTranslating = false;
+
+        function addGlossaryTerm() {
+            const jp = document.getElementById('glosJp').value.trim();
+            const kr = document.getElementById('glosKr').value.trim();
+            if(jp && kr) {
+                currentGlossary[jp] = kr;
+                document.getElementById('glosJp').value = '';
+                document.getElementById('glosKr').value = '';
+                renderGlossary();
+                
+                if(document.getElementById('resultContainer').style.display === 'block') {
+                    document.getElementById('retryBtn').style.display = 'block';
+                }
+            }
+        }
+
+        function removeGlossaryTerm(jp) {
+            delete currentGlossary[jp];
+            renderGlossary();
+        }
+
+        function renderGlossary() {
+            const container = document.getElementById('glossaryTags');
+            container.innerHTML = '';
+            for (const [jp, kr] of Object.entries(currentGlossary)) {
+                const tag = document.createElement('div');
+                tag.className = 'tag';
+                tag.innerHTML = `${jp} → ${kr} <span class="remove" onclick="removeGlossaryTerm('${jp}')">✕</span>`;
+                container.appendChild(tag);
+            }
+        }
+
+        async function startTranslation() {
+            if (isTranslating) return;
+            isTranslating = true;
+            
+            const url = document.getElementById('urlInput').value;
+            const btn = document.getElementById('transBtn');
+            const container = document.getElementById('resultContainer');
+            
+            btn.innerText = "번역 진행 중...";
+            btn.style.backgroundColor = "#9e9e9e";
+            document.getElementById('retryBtn').style.display = 'none';
+            container.innerHTML = "";
+            container.style.display = 'none';
+            
+            try {
+                const response = await fetch('/api/translate_stream', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({url: url, glossary: currentGlossary})
+                });
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder("utf-8");
+                let buffer = "";
+                let rawHtmlStream = "";
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split('\n\n');
+                    buffer = lines.pop(); 
+
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            const dataStr = line.substring(6);
+                            if(dataStr.trim() === "[DONE]") continue;
+
+                            try {
+                                const data = JSON.parse(dataStr);
+                                
+                                if (data.type === 'original') {
+                                    renderOriginalLayout(data.data);
+                                    container.style.display = 'block';
+                                } 
+                                else if (data.type === 'chunk') {
+                                    rawHtmlStream += data.text;
+                                    updateStreamingUI(rawHtmlStream);
+                                } 
+                                else if (data.type === 'error') {
+                                    alert("오류: " + data.message);
+                                }
+                            } catch(e) {
+                                console.error("JSON 파싱 에러:", e, dataStr);
+                            }
+                        }
+                    }
+                }
+            } catch(e) {
+                alert("통신 에러가 발생했습니다.");
+            } finally {
+                isTranslating = false;
+                btn.innerText = "번역 시작 (스트리밍)";
+                btn.style.backgroundColor = "#4CAF50";
+            }
+        }
+
+        function renderOriginalLayout(originals) {
+            let html = "";
+            originals.forEach((orig, i) => {
+                html += `<div class="line-pair">
+                    <p class="translated-line translating" id="trans_${i}">번역 대기 중...</p>
+                    <p class="original-line">${orig}</p>
+                </div>`;
+            });
+            document.getElementById('resultContainer').innerHTML = html;
+        }
+
+        function updateStreamingUI(streamText) {
+            const regex = /<p id="(\d+)">([\s\S]*?)(?:<\/p>|$)/g;
+            let match;
+            
+            while ((match = regex.exec(streamText)) !== null) {
+                const id = match[1];
+                const content = match[2];
+                const element = document.getElementById('trans_' + id);
+                
+                if (element) {
+                    element.innerHTML = content;
+                    if (element.classList.contains('translating')) {
+                        element.classList.remove('translating');
+                    }
+                }
+            }
+        }
+    </script>
+</body>
+</html>
