@@ -1,5 +1,9 @@
 pipeline {
-    agent any
+    agent {
+        docker {
+            image 'python:3.12-slim'
+        }
+    }
 
     stages {
         stage('1. Checkout') {
@@ -8,26 +12,17 @@ pipeline {
             }
         }
 
-        stage('2. Prepare Python Virtualenv') {
+        stage('2. Install Build Dependencies') {
             steps {
-                echo 'Creating Python Virtual Environment...'
-                // 젠킨스 빌드 격리를 위해 로컬 venv를 생성하고 필수 모듈 설치
-                sh '''
-                python3 -m venv venv
-                . venv/bin/activate
-                pip install --upgrade pip
-                pip install pyinstaller pillow
-                '''
+                echo 'Installing PyInstaller and Pillow inside build container...'
+                sh 'pip install --no-cache-dir pyinstaller pillow'
             }
         }
 
         stage('3. Build Comic Viewer') {
             steps {
                 echo 'Building Comic Viewer...'
-                sh '''
-                . venv/bin/activate
-                pyinstaller --noconfirm ComicViewer.spec
-                '''
+                sh 'pyinstaller --noconfirm ComicViewer.spec'
             }
         }
 
@@ -35,7 +30,6 @@ pipeline {
             steps {
                 echo 'Building Comic Downloader...'
                 sh '''
-                . venv/bin/activate
                 if [ -f ComicDownloader.spec ]; then
                     pyinstaller --noconfirm ComicDownloader.spec
                 else
