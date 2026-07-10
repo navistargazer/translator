@@ -14,6 +14,8 @@ pipeline {
 
         stage('2. Install Build Dependencies') {
             steps {
+                echo 'Installing system dependencies...'
+                sh 'apt-get update && apt-get install -y binutils'
                 echo 'Installing PyInstaller and Pillow inside build container...'
                 sh 'pip install --no-cache-dir pyinstaller pillow'
             }
