@@ -10,6 +10,7 @@ import io
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 from PIL import Image, ImageTk
+import PIL._tkinter_finder
 
 
 
@@ -187,7 +188,28 @@ class ComicViewerGUI:
         self.text_color = "#1d1d1f"     # 애플 다크 차콜
         self.sub_text = "#86868b"       # 애플 미디엄 그레이
         self.border_color = "#e5e5ea"   # 연한 실버 보더
-
+ 
+        # OS별 폰트 패밀리 자동 감정 설정
+        import platform
+        sys_name = platform.system()
+        if sys_name == "Darwin":
+            self.font_family = "Apple SD Gothic Neo"
+        elif sys_name == "Windows":
+            self.font_family = "Malgun Gothic"
+        else:
+            # Linux/Ubuntu: Xft/Fontconfig가 인식하는 한글 폰트 순회 탐색
+            import tkinter.font as tkfont
+            try:
+                available = tkfont.families()
+            except Exception:
+                available = []
+            candidates = ["Noto Sans CJK KR", "Noto Serif CJK KR", "NanumGothic", "sans-serif"]
+            self.font_family = "sans-serif"
+            for cand in candidates:
+                if cand in available:
+                    self.font_family = cand
+                    break
+ 
         self.root.configure(bg=self.bg_color)
         
         # 이미지 프리로더 (초기화)
@@ -224,7 +246,7 @@ class ComicViewerGUI:
         lib_label = tk.Label(
             sidebar_top,
             text="📚 만화 라이브러리",
-            font=("Apple SD Gothic Neo", 13, "bold"),
+            font=(self.font_family, 13, "bold"),
             fg=self.text_color,
             bg=self.sidebar_bg
         )
@@ -234,7 +256,7 @@ class ComicViewerGUI:
         folder_btn = tk.Label(
             sidebar_top,
             text="📂",
-            font=("Apple SD Gothic Neo", 12),
+            font=(self.font_family, 12),
             fg=self.accent_color,
             bg=self.sidebar_bg,
             cursor="hand2"
@@ -252,7 +274,7 @@ class ComicViewerGUI:
             fieldbackground=self.sidebar_bg,
             rowheight=26,
             borderwidth=0,
-            font=("Apple SD Gothic Neo", 11)
+            font=(self.font_family, 11)
         )
         style.map("Custom.Treeview", background=[("selected", self.accent_color)], foreground=[("selected", "#ffffff")])
         style.configure("Custom.Treeview.Heading", background=self.sidebar_bg, foreground=self.text_color, borderwidth=0)
@@ -526,10 +548,9 @@ class ComicViewerGUI:
                 self.canvas.winfo_height() / 2,
                 text="감상할 에피소드를 왼쪽 트리에서 더블클릭하여 선택해 주세요.",
                 fill=self.sub_text,
-                font=("Apple SD Gothic Neo", 12),
+                font=(self.font_family, 12),
                 justify="center"
             )
-            self.page_label.config(text="0 / 0 Page")
             return
 
         if page_index < 0 or page_index >= len(self.image_files):
@@ -579,7 +600,7 @@ class ComicViewerGUI:
                 self.canvas.winfo_height() / 2,
                 text="이미지 디코딩 에러 발생",
                 fill="#ff5a5f",
-                font=("Apple SD Gothic Neo", 12)
+                font=(self.font_family, 12)
             )
             return
 
@@ -644,7 +665,7 @@ class ComicViewerGUI:
                 x1 + 60, by,
                 text=align_text,
                 fill=self.text_color,
-                font=("Apple SD Gothic Neo", font_size, "bold"),
+                font=(self.font_family, font_size, "bold"),
                 anchor="w",
                 tags="btn_align"
             )
@@ -655,7 +676,7 @@ class ComicViewerGUI:
                 x1 + 330, by,
                 text=mode_text,
                 fill=self.text_color,
-                font=("Apple SD Gothic Neo", font_size, "bold"),
+                font=(self.font_family, font_size, "bold"),
                 anchor="w",
                 tags="btn_mode"
             )
@@ -677,7 +698,7 @@ class ComicViewerGUI:
                 bx, by,
                 text=progress_text,
                 fill=self.accent_color,
-                font=("Apple SD Gothic Neo", font_size + 1, "bold"),
+                font=(self.font_family, font_size + 1, "bold"),
                 anchor="center"
             )
             
@@ -686,7 +707,7 @@ class ComicViewerGUI:
                 x2 - 60, by,
                 text="전체 닫기 (Tab)",
                 fill=self.text_color,
-                font=("Apple SD Gothic Neo", font_size, "bold"),
+                font=(self.font_family, font_size, "bold"),
                 anchor="e",
                 tags="btn_close"
             )
@@ -819,7 +840,7 @@ class ComicViewerGUI:
             cx, cy,
             text=message,
             fill=self.text_color,
-            font=("Apple SD Gothic Neo", font_size, "bold")
+            font=(self.font_family, font_size, "bold")
         )
 
         def clear_toast():
@@ -992,7 +1013,13 @@ class ComicViewerGUI:
         self.canvas.bind("<Double-Button-1>", self.on_canvas_double_click)  # 더블클릭 전용 검사기로 변경
         self.canvas.bind("<Button-1>", self.on_canvas_click)
         self.canvas.bind("<Motion>", self.on_canvas_motion)  # 마우스 모션 바인딩 추가
-        self.canvas.bind("<MouseWheel>", self.on_mouse_wheel)  # 마우스 휠 바인딩
+        
+        import platform
+        if platform.system() == "Linux":
+            self.canvas.bind("<Button-4>", self.on_mouse_wheel)  # Linux 휠 위로
+            self.canvas.bind("<Button-5>", self.on_mouse_wheel)  # Linux 휠 아래로
+        else:
+            self.canvas.bind("<MouseWheel>", self.on_mouse_wheel)  # Windows / macOS 휠
         
         # 3. macOS 하드웨어 키코드 기반 물리 키캡 바인딩 (한/영 입력 소스 버그 완벽 해결)
         self.root.bind("<Key>", self.handle_global_key)
@@ -1000,8 +1027,7 @@ class ComicViewerGUI:
     def on_mouse_wheel(self, event):
         """
         마우스 휠/트랙패드 제스처를 감지하여 페이지를 전후로 전환합니다.
-        macOS의 자연스러운 스크롤(Natural Scrolling) 직관에 부합하도록,
-        위로 스크롤 시 이전 페이지, 아래로 스크롤 시 다음 페이지로 유기적 전환을 수행합니다.
+        Linux 환경(<Button-4>, <Button-5>) 및 macOS/Windows 환경(<MouseWheel>)을 모두 지원합니다.
         예민한 트랙패드 휠 입력을 조율하기 위해 0.5초(500ms) 디바운싱 잠금을 수행합니다.
         """
         current_time = time.time()
@@ -1009,12 +1035,24 @@ class ComicViewerGUI:
         if current_time - self.last_wheel_time < 0.5:
             return
 
-        # macOS에서 위로 굴리면 event.delta > 0, 아래로 굴리면 event.delta < 0
-        if event.delta > 0:
-            self.prev_page()  # 자연스러운 스크롤 복원: 위로 굴리면 이전 장
-            self.last_wheel_time = current_time
+        # 스크롤 방향 감지 (위로 스크롤: prev_page, 아래로 스크롤: next_page)
+        is_scroll_up = False
+        is_scroll_down = False
+
+        if event.num == 4:
+            is_scroll_up = True
+        elif event.num == 5:
+            is_scroll_down = True
+        elif event.delta > 0:
+            is_scroll_up = True
         elif event.delta < 0:
-            self.next_page()  # 자연스러운 스크롤 복원: 아래로 굴리면 다음 장
+            is_scroll_down = True
+
+        if is_scroll_up:
+            self.prev_page()
+            self.last_wheel_time = current_time
+        elif is_scroll_down:
+            self.next_page()
             self.last_wheel_time = current_time
 
     def on_canvas_double_click(self, event):

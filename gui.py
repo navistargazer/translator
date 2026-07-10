@@ -3,6 +3,7 @@ import sys
 import queue
 import threading
 import tkinter as tk
+import PIL._tkinter_finder
 from tkinter import filedialog, messagebox, ttk
 from urllib.parse import urlparse
 
@@ -47,6 +48,27 @@ class ComicDownloaderGUI:
         self.sub_text = "#b3b3b3"
         self.input_bg = "#333333"
 
+        # OS별 폰트 패밀리 자동 감정 설정
+        import platform
+        sys_name = platform.system()
+        if sys_name == "Darwin":
+            self.font_family = "Apple SD Gothic Neo"
+        elif sys_name == "Windows":
+            self.font_family = "Malgun Gothic"
+        else:
+            # Linux/Ubuntu: Xft/Fontconfig가 인식하는 한글 폰트 순회 탐색
+            import tkinter.font as tkfont
+            try:
+                available = tkfont.families()
+            except Exception:
+                available = []
+            candidates = ["Noto Sans CJK KR", "Noto Serif CJK KR", "NanumGothic", "sans-serif"]
+            self.font_family = "sans-serif"
+            for cand in candidates:
+                if cand in available:
+                    self.font_family = cand
+                    break
+
         self.root.configure(bg=self.bg_color)
         self.setup_ui()
 
@@ -65,7 +87,7 @@ class ComicDownloaderGUI:
         title_label = tk.Label(
             title_frame,
             text="📖 일일툰 만화 다운로더",
-            font=("Apple SD Gothic Neo", 18, "bold"),
+            font=(self.font_family, 18, "bold"),
             fg=self.accent_color,
             bg=self.bg_color
         )
@@ -74,7 +96,7 @@ class ComicDownloaderGUI:
         desc_label = tk.Label(
             title_frame,
             text="회차 목록 주소를 입력하면 전체 에피소드를, 개별 회차 주소를 입력하면 단일 에피소드를 다운로드합니다.",
-            font=("Apple SD Gothic Neo", 11),
+            font=(self.font_family, 11),
             fg=self.sub_text,
             bg=self.bg_color
         )
@@ -88,7 +110,7 @@ class ComicDownloaderGUI:
         url_label = tk.Label(
             card,
             text="만화 주소 (URL)",
-            font=("Apple SD Gothic Neo", 11, "bold"),
+            font=(self.font_family, 11, "bold"),
             fg=self.text_color,
             bg=self.card_color
         )
@@ -99,7 +121,7 @@ class ComicDownloaderGUI:
 
         self.url_entry = tk.Entry(
             url_frame,
-            font=("Apple SD Gothic Neo", 11),
+            font=(self.font_family, 11),
             fg=self.text_color,
             bg=self.input_bg,
             insertbackground="white",
@@ -117,7 +139,7 @@ class ComicDownloaderGUI:
         paste_btn = tk.Label(
             url_frame,
             text="📋 주소 붙여넣기",
-            font=("Apple SD Gothic Neo", 11),
+            font=(self.font_family, 11),
             fg=self.text_color,
             bg="#444444",
             cursor="hand2",
@@ -135,7 +157,7 @@ class ComicDownloaderGUI:
         path_label = tk.Label(
             card,
             text="다운로드 저장 경로",
-            font=("Apple SD Gothic Neo", 11, "bold"),
+            font=(self.font_family, 11, "bold"),
             fg=self.text_color,
             bg=self.card_color
         )
@@ -146,7 +168,7 @@ class ComicDownloaderGUI:
 
         self.path_entry = tk.Entry(
             path_frame,
-            font=("Apple SD Gothic Neo", 11),
+            font=(self.font_family, 11),
             fg=self.text_color,
             bg=self.input_bg,
             insertbackground="white",
@@ -166,7 +188,7 @@ class ComicDownloaderGUI:
         browse_btn = tk.Label(
             path_frame,
             text="폴더 선택",
-            font=("Apple SD Gothic Neo", 11),
+            font=(self.font_family, 11),
             fg=self.text_color,
             bg="#444444",
             cursor="hand2",
@@ -188,7 +210,7 @@ class ComicDownloaderGUI:
         self.download_btn = tk.Label(
             btn_frame,
             text="🚀 다운로드 시작",
-            font=("Apple SD Gothic Neo", 12, "bold"),
+            font=(self.font_family, 12, "bold"),
             fg=self.text_color,
             bg=self.accent_color,
             cursor="hand2",
@@ -206,7 +228,7 @@ class ComicDownloaderGUI:
         self.open_folder_btn = tk.Label(
             btn_frame,
             text="📂 폴더 열기",
-            font=("Apple SD Gothic Neo", 12, "bold"),
+            font=(self.font_family, 12, "bold"),
             fg=self.text_color,
             bg="#444444",
             cursor="hand2",
@@ -223,7 +245,7 @@ class ComicDownloaderGUI:
         self.status_label = tk.Label(
             btn_frame,
             text="대기 중...",
-            font=("Apple SD Gothic Neo", 11),
+            font=(self.font_family, 11),
             fg=self.sub_text,
             bg=self.bg_color
         )
@@ -236,7 +258,7 @@ class ComicDownloaderGUI:
         log_title = tk.Label(
             log_frame,
             text="📋 실행 실시간 로그",
-            font=("Apple SD Gothic Neo", 11, "bold"),
+            font=(self.font_family, 11, "bold"),
             fg=self.text_color,
             bg=self.bg_color
         )
